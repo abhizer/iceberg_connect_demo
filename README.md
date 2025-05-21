@@ -21,12 +21,11 @@ This demonstration will send data from Feldera to an Apache Kafka topic which wi
 
 3. Launch the Iceberg connector (installed via docker compose)
 
-    `curl -X PUT http://localhost:8083/connectors/pizzas-on-ice/config \
-     -i -H "Content-Type: application/json" -d @pizzas_on_ice.json`
+    `curl -X PUT http://localhost:8083/connectors/pizzas-on-ice/config -i -H "Content-Type: application/json" -d @pizzas_on_ice.json`
 
 4. Check status of connector
 
-    `curl http://localhost:8083/connectors/pizzas-on-ice/status |jq`
+    `curl http://localhost:8083/connectors/pizzas-on-ice/status | jq`
 
 5. Install `feldera` package
 
