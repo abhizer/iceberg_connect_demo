@@ -1,48 +1,41 @@
-# Iceberg Kafka Connect Demo
+# Feldera Iceberg Kafka Connect Demo
 
-This demonstration will send data into an Apache Kafka topic which will be picked up by the Iceberg Connector for Kafka Connect and written to an Iceberg table.
+This demonstration will send data from Feldera to an Apache Kafka topic which will be picked up by the Iceberg Connector for Kafka Connect and written to an Iceberg table.
 
 ## Technologies involved
-- Apache Iceberg
-- Apache Spark / PySpark
-- MinIo
+- Feldera
 - Apache Kafka
 - Kafka Connect
+- Apache Iceberg
+- MinIo
 - Python
 
 ## Steps to run demo
 1. Launch server applications
 
     `docker compose up -d`
+
 2. Create Kafka topic
 
     `docker exec -t broker kafka-topics --create --topic completed-pizzas --partitions 6 --bootstrap-server broker:9092`
+
 3. Launch the Iceberg connector (installed via docker compose)
 
     `curl -X PUT http://localhost:8083/connectors/pizzas-on-ice/config \
      -i -H "Content-Type: application/json" -d @pizzas_on_ice.json`
+
 4. Check status of connector
 
     `curl http://localhost:8083/connectors/pizzas-on-ice/status |jq`
-5. Install `confluent-kafka` package
 
-    `pip install confluent-kafka`
-6. In a seperate terminal window, run the pizza loader script
+5. Install `feldera` package
 
-    `python pizza_loader.py`
-7. Launch PySpark
+    `pip install feldera`
 
-    `docker exec -it spark-iceberg pyspark`
-8. Explore Iceberg table
+6. Start the Feldera pipeline.
 
-    `df = spark.table("demo.rpc.pizzas")`
+    `python start_feldera_pipeline.py`
 
-    `df.count()`
-
-    `df.show(5)`
-
-    `df.groupBy("store_id").count().sort("count", ascending=False).show(5)`
-
-9. Clean up resources when you're done.
+7. Clean up resources when you're done.
 
     `docker compose down`

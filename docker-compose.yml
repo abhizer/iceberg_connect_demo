@@ -1,8 +1,42 @@
 version: "3"
 
 services:
+  feldera:
+    tty: true
+    image: ghcr.io/feldera/pipeline-manager:${FELDERA_VERSION:-latest}
+    networks:
+      iceberg_net:
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    stop_grace_period: 0s
+    environment:
+      - RUST_LOG=info,actix_web=error,tokio_postgres=info
+      - RUST_BACKTRACE=1
+      - AUTH_CLIENT_ID
+      - AUTH_ISSUER
+    security_opt:
+      # The default seccomp profile disables the `io_uring_*` syscalls that we need.
+      # Ideally, we would minimally relax the default profile, which is usually in
+      # /usr/share/container/seccomp.json, but we often start via `curl` of just this
+      # `docker-compose.yml`, so there's no way to grab the specific file at the
+      # same time, so instead we just use `seccomp:unconfined`.
+      #
+      #- seccomp:seccomp.json
+      - seccomp:unconfined
+    healthcheck:
+      # TODO: add `/status` endpoint
+      test:
+        [
+          "CMD-SHELL",
+          "curl --fail --request GET --url http://localhost:8080/healthz"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   broker:
-    image: confluentinc/cp-kafka:7.4.1
+    image: confluentinc/cp-kafka:7.9.1
     container_name: broker
     networks:
       iceberg_net:
@@ -25,8 +59,9 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
       CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+
   connect:
-    image: confluentinc/cp-kafka-connect-base:7.3.0
+    image: confluentinc/cp-kafka-connect:7.9.1
     container_name: connect
     networks:
       iceberg_net:
@@ -59,30 +94,9 @@ services:
     - bash
     - -c
     - "echo \"Installing connector plugins\"\nmkdir -p /usr/share/confluent-hub-components/\nconfluent-hub
-      install --no-prompt --component-dir /usr/share/confluent-hub-components/ tabular/iceberg-kafka-connect:0.6.5\n#\necho
+      install --no-prompt --component-dir /usr/share/confluent-hub-components/ tabular/iceberg-kafka-connect:latest\n#\necho
       \"Launching Kafka Connect worker\"\n/etc/confluent/docker/run & \n#\nsleep infinity\n"
 
-  spark-iceberg:
-    image: tabulario/spark-iceberg
-    container_name: spark-iceberg
-    build: spark/
-    networks:
-      iceberg_net:
-    depends_on:
-      - rest
-      - minio
-    volumes:
-      - ./warehouse:/home/iceberg/warehouse
-      - ./notebooks:/home/iceberg/notebooks/notebooks
-    environment:
-      - AWS_ACCESS_KEY_ID=admin
-      - AWS_SECRET_ACCESS_KEY=password
-      - AWS_REGION=us-east-1
-    ports:
-      - 8888:8888
-      - 8080:8080
-      - 10000:10000
-      - 10001:10001
   rest:
     image: tabulario/iceberg-rest
     container_name: iceberg-rest
@@ -97,6 +111,7 @@ services:
       - CATALOG_WAREHOUSE=s3://warehouse/
       - CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO
       - CATALOG_S3_ENDPOINT=http://minio:9000
+
   minio:
     image: minio/minio
     container_name: minio
@@ -112,6 +127,7 @@ services:
       - 9001:9001
       - 9000:9000
     command: ["server", "/data", "--console-address", ":9001"]
+
   mc:
     depends_on:
       - minio
